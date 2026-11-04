@@ -603,6 +603,11 @@ async function handleNotification(method: string, params: Record<string, any>): 
   }
 }
 
+let pendingRequests = 0;
+let inputClosed = false;
+const exitWhenIdle = () => {
+  if (inputClosed && pendingRequests === 0) process.exit(0);
+};
 const lines = NodeReadline.createInterface({ input: process.stdin });
 lines.on("line", (line) => {
   if (!line.trim()) return;
@@ -626,23 +631,32 @@ lines.on("line", (line) => {
     return;
   }
   const id = message.id;
-  handleRequest(message.method, params).then(
-    (result) => send({ id, result }),
-    (error: unknown) => {
-      const rpc =
-        error instanceof RpcError
-          ? error
-          : new RpcError(-32603, (error as Error)?.message ?? String(error));
-      log(message.method, "failed:", rpc.message);
-      send({
-        id,
-        error: {
-          code: rpc.code,
-          message: rpc.message,
-          ...(rpc.data === undefined ? {} : { data: rpc.data }),
-        },
-      });
-    },
-  );
+  pendingRequests++;
+  handleRequest(message.method, params)
+    .then(
+      (result) => send({ id, result }),
+      (error: unknown) => {
+        const rpc =
+          error instanceof RpcError
+            ? error
+            : new RpcError(-32603, (error as Error)?.message ?? String(error));
+        log(message.method, "failed:", rpc.message);
+        send({
+          id,
+          error: {
+            code: rpc.code,
+            message: rpc.message,
+            ...(rpc.data === undefined ? {} : { data: rpc.data }),
+          },
+        });
+      },
+    )
+    .finally(() => {
+      pendingRequests--;
+      exitWhenIdle();
+    });
 });
-lines.on("close", () => process.exit(0));
+lines.on("close", () => {
+  inputClosed = true;
+  exitWhenIdle();
+});
