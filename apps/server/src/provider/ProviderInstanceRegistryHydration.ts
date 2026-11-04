@@ -123,18 +123,18 @@ export const seedDevReplayInstance = Effect.fn(
 });
 
 /**
- * Reason Machines runs through its worker CLI's ACP agent (`reason acp`, docs.reasonmachines.com/docs/cli):
- * each thread is a Reason Session, signed in with `reason login` (or REASON_API_KEY on the instance).
- * One instance runs commands on this computer in the project folder, the other in Reason's cloud.
+ * Reason Machines runs through its worker CLI's ACP agent (`reason acp`, docs.reasonmachines.com/docs/cli).
+ * Each thread is one Reason Session, signed in with `reason login` (or REASON_API_KEY on the instance). It
+ * starts on this computer in the project folder; the agent itself reaches the Reason's cloud computers and
+ * other connected computers (computers_list, computers_use, sessions_create), so no placement choice here.
  */
-const REASON_INSTANCES = [
-  { id: ProviderInstanceId.make("reason"), displayName: "Reason · This Mac", args: ["acp", "-y"] },
-  {
-    id: ProviderInstanceId.make("reasonCloud"),
-    displayName: "Reason · Cloud",
-    args: ["acp", "-y", "--cloud"],
-  },
-] as const;
+const REASON_INSTANCE = {
+  id: ProviderInstanceId.make("reason"),
+  displayName: "Reason",
+  args: ["acp", "-y"],
+} as const;
+/** Earlier builds seeded a separate cloud instance; remove it while it still has the seeded command. */
+const RETIRED_REASON_CLOUD_ID = ProviderInstanceId.make("reasonCloud");
 
 /** GUI launches get a bare PATH; the installer puts `reason` in ~/.local/bin. */
 const findReasonCli = Effect.fn("ProviderInstanceRegistryHydration.findReasonCli")(function* () {
@@ -156,29 +156,42 @@ const findReasonCli = Effect.fn("ProviderInstanceRegistryHydration.findReasonCli
   return undefined;
 });
 
-/** Rewritten only when the CLI path moved; the user's environment and on/off state are kept. */
+/** Rewritten only when the CLI path or seeded command changed; the user's environment and on/off state are kept. */
 const seedReasonInstances = Effect.fn("ProviderInstanceRegistryHydration.seedReasonInstances")(
   function* () {
     const commandPath = yield* findReasonCli();
     if (commandPath === undefined) return;
     const serverSettings = yield* Settings.ServerSettingsService;
     const current = (yield* serverSettings.getSettings).providerInstances;
-    for (const seed of REASON_INSTANCES) {
-      const existing = current[seed.id];
-      const existingConfig = existing?.config as Record<string, unknown> | undefined;
-      if (existingConfig?.commandPath === commandPath) continue;
-      const instance: ProviderInstanceConfig = {
-        displayName: seed.displayName,
-        ...existing,
-        driver: ProviderDriverKind.make("acpRegistry"),
-        config: { ...existingConfig, source: "local", commandPath, commandArgs: [...seed.args] },
-      };
+    const retiredArgs = (
+      current[RETIRED_REASON_CLOUD_ID]?.config as Record<string, unknown> | undefined
+    )?.commandArgs as ReadonlyArray<unknown> | undefined;
+    if (retiredArgs?.[0] === "acp" && retiredArgs.includes("--cloud")) {
       yield* serverSettings.updateProviderInstance({
-        operation: "upsert",
-        instanceId: seed.id,
-        instance,
+        operation: "remove",
+        instanceId: RETIRED_REASON_CLOUD_ID,
       });
     }
+    const existing = current[REASON_INSTANCE.id];
+    const existingConfig = existing?.config as Record<string, unknown> | undefined;
+    const existingArgs = existingConfig?.commandArgs as ReadonlyArray<unknown> | undefined;
+    if (existingConfig?.commandPath === commandPath && existingArgs?.[0] === "acp") return;
+    const instance: ProviderInstanceConfig = {
+      ...existing,
+      displayName: REASON_INSTANCE.displayName,
+      driver: ProviderDriverKind.make("acpRegistry"),
+      config: {
+        ...existingConfig,
+        source: "local",
+        commandPath,
+        commandArgs: [...REASON_INSTANCE.args],
+      },
+    };
+    yield* serverSettings.updateProviderInstance({
+      operation: "upsert",
+      instanceId: REASON_INSTANCE.id,
+      instance,
+    });
   },
 );
 
