@@ -122,6 +122,46 @@ export const seedDevReplayInstance = Effect.fn(
   });
 });
 
+const REASON_INSTANCE_ID = ProviderInstanceId.make("reason");
+
+/**
+ * Reason Machines (https://docs.reasonmachines.com/api-reference) runs as a local ACP agent,
+ * packages/reason-acp, that turns each thread into a Reason Session through the HTTP API. By
+ * default the Session runs on this computer, in the project folder. Rewritten only when the node
+ * or checkout path moved; the user's environment (REASON_API_KEY …) and on/off state are kept.
+ */
+const seedReasonInstance = Effect.fn("ProviderInstanceRegistryHydration.seedReasonInstance")(
+  function* () {
+    const path = yield* Path.Path;
+    const agentPath = yield* path.fromFileUrl(
+      new URL("../../../../packages/reason-acp/src/main.ts", import.meta.url),
+    );
+    if (!(yield* (yield* FileSystem.FileSystem).exists(agentPath))) return;
+    const commandPath = yield* HostProcess.ExecutablePath;
+    const serverSettings = yield* Settings.ServerSettingsService;
+    const existing = (yield* serverSettings.getSettings).providerInstances[REASON_INSTANCE_ID];
+    const existingConfig = existing?.config as Record<string, unknown> | undefined;
+    if (
+      existingConfig?.commandPath === commandPath &&
+      (existingConfig.commandArgs as ReadonlyArray<unknown> | undefined)?.[0] === agentPath
+    ) {
+      return;
+    }
+    const instance: ProviderInstanceConfig = {
+      displayName: "Reason",
+      accentColor: "#111111",
+      ...existing,
+      driver: ProviderDriverKind.make("acpRegistry"),
+      config: { ...existingConfig, source: "local", commandPath, commandArgs: [agentPath] },
+    };
+    yield* serverSettings.updateProviderInstance({
+      operation: "upsert",
+      instanceId: REASON_INSTANCE_ID,
+      instance,
+    });
+  },
+);
+
 const layerSettingsWatcher = (settingsChanges: Stream.Stream<ServerSettings>) =>
   Layer.effectDiscard(
     Effect.gen(function* () {
@@ -155,6 +195,9 @@ export const layer: Layer.Layer<
     const serverSettings = yield* Settings.ServerSettingsService;
     yield* seedDevReplayInstance().pipe(
       Effect.catchCause((cause) => Effect.logWarning("Dev replay agent unavailable", cause)),
+    );
+    yield* seedReasonInstance().pipe(
+      Effect.catchCause((cause) => Effect.logWarning("Reason agent unavailable", cause)),
     );
     // Subscribe before the seed read so saves during registry construction are queued.
     const settingsChanges = yield* serverSettings.subscribeChanges;
