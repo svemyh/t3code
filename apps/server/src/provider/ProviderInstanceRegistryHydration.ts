@@ -122,43 +122,63 @@ export const seedDevReplayInstance = Effect.fn(
   });
 });
 
-const REASON_INSTANCE_ID = ProviderInstanceId.make("reason");
-
 /**
- * Reason Machines (https://docs.reasonmachines.com/api-reference) runs as a local ACP agent,
- * packages/reason-acp, that turns each thread into a Reason Session through the HTTP API. By
- * default the Session runs on this computer, in the project folder. Rewritten only when the node
- * or checkout path moved; the user's environment (REASON_API_KEY …) and on/off state are kept.
+ * Reason Machines runs through its worker CLI's ACP agent (`reason acp`, docs.reasonmachines.com/docs/cli):
+ * each thread is a Reason Session, signed in with `reason login` (or REASON_API_KEY on the instance).
+ * One instance runs commands on this computer in the project folder, the other in Reason's cloud.
  */
-const seedReasonInstance = Effect.fn("ProviderInstanceRegistryHydration.seedReasonInstance")(
+const REASON_INSTANCES = [
+  { id: ProviderInstanceId.make("reason"), displayName: "Reason · This Mac", args: ["acp", "-y"] },
+  {
+    id: ProviderInstanceId.make("reasonCloud"),
+    displayName: "Reason · Cloud",
+    args: ["acp", "-y", "--cloud"],
+  },
+] as const;
+
+/** GUI launches get a bare PATH; the installer puts `reason` in ~/.local/bin. */
+const findReasonCli = Effect.fn("ProviderInstanceRegistryHydration.findReasonCli")(function* () {
+  const path = yield* Path.Path;
+  const fileSystem = yield* FileSystem.FileSystem;
+  const environment = yield* HostProcess.Environment;
+  const platform = yield* HostProcess.Platform;
+  const home = environment.HOME ?? environment.USERPROFILE ?? "";
+  const directories = [
+    ...(environment.PATH ?? "").split(platform === "win32" ? ";" : ":"),
+    path.join(home, ".local", "bin"),
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+  ].filter((directory) => directory.length > 0);
+  for (const directory of directories) {
+    const candidate = path.join(directory, "reason");
+    if (yield* fileSystem.exists(candidate)) return candidate;
+  }
+  return undefined;
+});
+
+/** Rewritten only when the CLI path moved; the user's environment and on/off state are kept. */
+const seedReasonInstances = Effect.fn("ProviderInstanceRegistryHydration.seedReasonInstances")(
   function* () {
-    const path = yield* Path.Path;
-    const agentPath = yield* path.fromFileUrl(
-      new URL("../../../../packages/reason-acp/src/main.ts", import.meta.url),
-    );
-    if (!(yield* (yield* FileSystem.FileSystem).exists(agentPath))) return;
-    const commandPath = yield* HostProcess.ExecutablePath;
+    const commandPath = yield* findReasonCli();
+    if (commandPath === undefined) return;
     const serverSettings = yield* Settings.ServerSettingsService;
-    const existing = (yield* serverSettings.getSettings).providerInstances[REASON_INSTANCE_ID];
-    const existingConfig = existing?.config as Record<string, unknown> | undefined;
-    if (
-      existingConfig?.commandPath === commandPath &&
-      (existingConfig.commandArgs as ReadonlyArray<unknown> | undefined)?.[0] === agentPath
-    ) {
-      return;
+    const current = (yield* serverSettings.getSettings).providerInstances;
+    for (const seed of REASON_INSTANCES) {
+      const existing = current[seed.id];
+      const existingConfig = existing?.config as Record<string, unknown> | undefined;
+      if (existingConfig?.commandPath === commandPath) continue;
+      const instance: ProviderInstanceConfig = {
+        displayName: seed.displayName,
+        ...existing,
+        driver: ProviderDriverKind.make("acpRegistry"),
+        config: { ...existingConfig, source: "local", commandPath, commandArgs: [...seed.args] },
+      };
+      yield* serverSettings.updateProviderInstance({
+        operation: "upsert",
+        instanceId: seed.id,
+        instance,
+      });
     }
-    const instance: ProviderInstanceConfig = {
-      displayName: "Reason",
-      accentColor: "#111111",
-      ...existing,
-      driver: ProviderDriverKind.make("acpRegistry"),
-      config: { ...existingConfig, source: "local", commandPath, commandArgs: [agentPath] },
-    };
-    yield* serverSettings.updateProviderInstance({
-      operation: "upsert",
-      instanceId: REASON_INSTANCE_ID,
-      instance,
-    });
   },
 );
 
@@ -196,8 +216,8 @@ export const layer: Layer.Layer<
     yield* seedDevReplayInstance().pipe(
       Effect.catchCause((cause) => Effect.logWarning("Dev replay agent unavailable", cause)),
     );
-    yield* seedReasonInstance().pipe(
-      Effect.catchCause((cause) => Effect.logWarning("Reason agent unavailable", cause)),
+    yield* seedReasonInstances().pipe(
+      Effect.catchCause((cause) => Effect.logWarning("Reason CLI unavailable", cause)),
     );
     // Subscribe before the seed read so saves during registry construction are queued.
     const settingsChanges = yield* serverSettings.subscribeChanges;
