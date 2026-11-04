@@ -46,6 +46,14 @@ describe("relayJwt", () => {
       const error = yield* Effect.flip(verify);
       expect(RelayJwtError.diagnosticCode(error)).toBe("ClaimValidationFailed.exp.expired");
       expect(error.message).toBe('Failed to verify relay JWT of type "test+jwt".');
+
+      const es256 = yield* Jwk.generateKeyPair({ algorithm: "ES256" }).pipe(
+        Effect.flatMap((pair) => Jwk.importPrivate(pair.privateKey, "ES256")),
+      );
+      const wrongAlgorithm = yield* Effect.flip(
+        signRelayJwt({ privateKey: es256, typ: "test+jwt", payload: { sub: "user" } }),
+      );
+      expect(RelayJwtError.diagnosticCode(wrongAlgorithm)).toBe("AlgorithmNotAllowed");
     }).pipe(Effect.provide(NodeCrypto.layerSignature)),
   );
 });
