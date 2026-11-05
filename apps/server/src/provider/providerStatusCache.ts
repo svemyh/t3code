@@ -28,6 +28,7 @@ const mergeProviderModels = (
 };
 
 const BUILT_IN_DRIVER_ORDER: ReadonlyArray<string> = [
+  "reason",
   "codex",
   "claudeAgent",
   "cursor",
