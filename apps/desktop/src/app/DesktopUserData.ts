@@ -61,9 +61,7 @@ export const resolveUserDataPath = Effect.fn("desktop.userData.resolveUserDataPa
     const destinationState = path.join(destinationPath, "Local State");
     if (yield* inspect(destinationState)) return destinationPath;
     const legacyState = path.join(legacyPath, "Local State");
-    const sourceState = (yield* inspect(legacyState))
-      ? legacyState
-      : path.join(input.appDataDirectory, "t3code", "Local State");
+    const sourceState = legacyState;
     if (!(yield* inspect(sourceState))) return destinationPath;
     // Windows safeStorage keys live here. Copy only these preferences, never locked databases.
     const state = yield* fs

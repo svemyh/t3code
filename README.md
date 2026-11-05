@@ -1,5 +1,42 @@
 # T3 Code
 
+## Reason runtime fork
+
+This fork adds **Reason** to T3 Code through the Reason CLI's ACP interface.
+Each thread is a Reason Session that can use your connected computer and Reason
+cloud computers. Install [Vite+](https://viteplus.dev/guide/) and the
+[Reason CLI](https://docs.reasonmachines.com/docs/cli), then run:
+
+```bash
+git clone --branch reason-provider https://github.com/svemyh/t3code.git
+cd t3code
+reason login
+reason connect
+vp i
+vp run dev
+```
+
+Select **Reason** when starting a thread. If you installed the CLI after starting
+the server, restart the server to discover it. Sign in on the machine running
+the T3 Code server, including when connecting from another device.
+
+Reason starts in your project's folder. Try: **Run pwd on this computer and on a
+Reason cloud computer. Report both results.** Cloud work on a repository needs
+the Reason GitHub App installed for that repository. Sessions also appear in the
+Reason app and can be continued with `reason send SESSION_ID "MESSAGE"`.
+
+Keep local projects inside the folder connected by `reason connect` (normally
+your home folder). If Reason reports that a project folder is unavailable,
+connect that folder through Reason before retrying.
+
+The desktop build is named **T3 Code (Reason)**, uses `~/.t3-reason` and a separate
+Electron profile, and has no upstream update feed. Build it with
+`vp run dist:desktop:dmg:arm64` on Apple Silicon, or use the other
+`dist:desktop:*` scripts for your platform. The upstream installers below install
+the original T3 Code; build this branch to use this fork.
+
+---
+
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
 Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, OpenCode, Google Antigravity, and fx. If they're set up on your computer, T3 Code can control them.
