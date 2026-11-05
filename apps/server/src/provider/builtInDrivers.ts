@@ -16,6 +16,7 @@ import type {
   ProviderUsageReaderEnv,
 } from "@t3tools/provider-core/server/driver";
 import { KiroDriver, type KiroDriverEnv } from "@t3tools/provider-kiro/server";
+import { ReasonDriver, type ReasonDriverEnv } from "@t3tools/provider-reason/server";
 
 export type BuiltInDriversEnv =
   | AcpRegistryDriverEnv
@@ -28,9 +29,11 @@ export type BuiltInDriversEnv =
   | KiroDriverEnv
   | OpenCodeDriverEnv
   | PiDriverEnv
+  | ReasonDriverEnv
   | MuseDriverEnv;
 
 export const BUILT_IN_DRIVERS: ReadonlyArray<AnyProviderDriver<BuiltInDriversEnv>> = [
+  ReasonDriver,
   CodexDriver,
   ClaudeDriver,
   CursorDriver,

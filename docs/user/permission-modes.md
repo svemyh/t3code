@@ -57,4 +57,7 @@ approvals for actions that support them.
 Kiro offers only **Supervised** and **Full access**. In **Supervised** Kiro also asks you to
 review a turn's file changes. See [Kiro permissions](./providers-kiro.md#permission-modes).
 
+Reason never asks for approval and offers only **Full access**. A Reason thread set to another mode
+still runs without approvals. See [Reason permissions](./providers-reason.md#permissions-and-limits).
+
 See the [provider guides](./install.md#providers) for setup and provider-specific limits.

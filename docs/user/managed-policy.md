@@ -254,7 +254,7 @@ so restart T3 Code after that.
 
 ### Providers
 
-`providers.allowedDrivers` lists the providers that may run, by ID: `codex` (Codex),
+`providers.allowedDrivers` lists the providers that may run, by ID: `reason` (Reason), `codex` (Codex),
 `claudeAgent` (Claude), `cursor` (Cursor), `grok` (Grok), `opencode` (OpenCode), `antigravity`
 (Antigravity), `fx` (fx), `kiro` (Kiro), `pi` (Pi), `muse` (Muse Code), and `acpRegistry` (ACP
 Registry).

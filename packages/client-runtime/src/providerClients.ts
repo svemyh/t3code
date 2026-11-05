@@ -15,8 +15,10 @@ import { kiroClient } from "@t3tools/provider-kiro/client";
 import { museClient } from "@t3tools/provider-muse/client";
 import { openCodeClient } from "@t3tools/provider-opencode/client";
 import { piClient } from "@t3tools/provider-pi/client";
+import { reasonClient } from "@t3tools/provider-reason/client";
 
 export const providerClients = makeProviderClientRegistry([
+  reasonClient,
   {
     driverKind: ProviderDriverKind.make("codex"),
     label: "Codex",
