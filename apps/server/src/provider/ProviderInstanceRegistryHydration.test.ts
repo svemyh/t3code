@@ -15,6 +15,7 @@ import * as ServerConfig from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import {
   DEV_REPLAY_INSTANCE_ID,
+  REASON_INSTANCE_ID,
   deriveProviderInstanceConfigMap,
   seedDevReplayInstance,
 } from "./ProviderInstanceRegistryHydration.ts";
@@ -27,6 +28,23 @@ function settingsWith(overrides: Partial<ServerSettings>): ServerSettings {
 }
 
 describe("deriveProviderInstanceConfigMap", () => {
+  it("adds the built-in Reason instance running `reason acp`", () => {
+    const merged = deriveProviderInstanceConfigMap(settingsWith({}));
+    expect(merged[REASON_INSTANCE_ID]).toEqual({
+      driver: ProviderDriverKind.make("acpRegistry"),
+      displayName: "Reason",
+      config: { source: "local", commandPath: "reason", commandArgs: ["acp", "-y"] },
+    });
+  });
+
+  it("keeps a user's own Reason instance settings", () => {
+    const own = { driver: ProviderDriverKind.make("acpRegistry"), enabled: false };
+    const merged = deriveProviderInstanceConfigMap(
+      settingsWith({ providerInstances: { [REASON_INSTANCE_ID]: own } }),
+    );
+    expect(merged[REASON_INSTANCE_ID]).toEqual(own);
+  });
+
   it("turns a machine-disabled instance on when a project enables it", () => {
     const settings = settingsWith({
       providerInstances: {
