@@ -47,6 +47,18 @@ type ProviderInstanceRegistryHydrationEnv =
   // The Claude runner counts its CLIs as running agents for port discovery.
   | PortScanner.PortDiscovery;
 
+/**
+ * Reason (reasonmachines.com) is the built-in runtime of this fork: each thread is a Reason
+ * Session reached through the `reason` CLI's ACP server (`reason acp`), which runs on this
+ * computer in the project folder by default. Install and sign in with the Reason CLI.
+ */
+export const REASON_INSTANCE_ID = ProviderInstanceId.make("reason");
+export const REASON_INSTANCE_CONFIG: ProviderInstanceConfig = {
+  driver: ProviderDriverKind.make("acpRegistry"),
+  displayName: "Reason",
+  config: { source: "local", commandPath: "reason", commandArgs: ["acp", "-y"] },
+};
+
 export const deriveProviderInstanceConfigMap = (
   settings: ServerSettings,
 ): ProviderInstanceConfigMap => {
@@ -58,6 +70,8 @@ export const deriveProviderInstanceConfigMap = (
     if (instanceId in merged) continue;
     merged[instanceId] = { driver: driver.driverKind };
   }
+
+  if (!(REASON_INSTANCE_ID in merged)) merged[REASON_INSTANCE_ID] = REASON_INSTANCE_CONFIG;
 
   // Probe project-enabled instances even if disabled machine-wide; project threads can still route to them.
   for (const overrides of Object.values(settings.projectSettingsOverrides)) {
